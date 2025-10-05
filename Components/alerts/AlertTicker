@@ -1,0 +1,40 @@
+import React from "react";
+import { motion } from "framer-motion";
+import { AlertCircle } from "lucide-react";
+
+export default function AlertTicker({ alerts }) {
+  const urgentAlerts = alerts.filter(a => a.sentiment_type === 'negative' && a.urgency === 'high').slice(0, 5);
+
+  if (urgentAlerts.length === 0) return null;
+
+  return (
+    <div className="bg-gradient-to-r from-[#DC3545]/20 to-[#FD7E14]/20 border border-[#DC3545]/30 rounded-lg p-4 mb-6 overflow-hidden">
+      <div className="flex items-center gap-2 mb-2">
+        <AlertCircle className="w-5 h-5 text-[#DC3545] animate-pulse" />
+        <span className="text-sm font-semibold text-[#DC3545]">URGENT ALERTS</span>
+      </div>
+      <div className="relative h-8 overflow-hidden">
+        <motion.div
+          className="flex gap-8 absolute"
+          animate={{ x: [0, -1000] }}
+          transition={{ 
+            duration: 20, 
+            repeat: Infinity, 
+            ease: "linear" 
+          }}
+        >
+          {[...urgentAlerts, ...urgentAlerts].map((alert, index) => (
+            <div key={index} className="flex items-center gap-2 whitespace-nowrap">
+              <span className="text-2xl">🚨</span>
+              <span className="text-white font-medium">@{alert.customer_id}:</span>
+              <span className="text-gray-300">{alert.message.substring(0, 80)}...</span>
+              <span className="text-gray-500 text-sm">
+                {Math.floor(Math.random() * 30) + 1} min ago
+              </span>
+            </div>
+          ))}
+        </motion.div>
+      </div>
+    </div>
+  );
+}
