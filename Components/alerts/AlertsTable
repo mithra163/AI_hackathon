@@ -1,0 +1,252 @@
+import React, { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Flag, Eye, Mail, MessageSquare, Share2 } from "lucide-react";
+import { format } from "date-fns";
+
+const sourceIcon = {
+  email: Mail,
+  social: Share2,
+  survey: MessageSquare,
+  chat: MessageSquare
+};
+
+const urgencyColor = {
+  low: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  medium: "bg-[#FD7E14]/20 text-[#FD7E14] border-[#FD7E14]/30",
+  high: "bg-[#DC3545]/20 text-[#DC3545] border-[#DC3545]/30"
+};
+
+export default function AlertsTable({ alerts, onFlag, onUpdateUrgency }) {
+  const [selectedRows, setSelectedRows] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterSentiment, setFilterSentiment] = useState("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const filteredAlerts = alerts.filter(alert => {
+    const matchesSearch = 
+      alert.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      alert.customer_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      alert.message.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesSentiment = filterSentiment === "all" || alert.sentiment_type === filterSentiment;
+    
+    return matchesSearch && matchesSentiment;
+  });
+
+  const paginatedAlerts = filteredAlerts.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredAlerts.length / itemsPerPage);
+
+  const toggleRowSelection = (id) => {
+    setSelectedRows(prev => 
+      prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
+    );
+  };
+
+  const bulkFlag = async () => {
+    for (const id of selectedRows) {
+      await onFlag(id);
+    }
+    setSelectedRows([]);
+  };
+
+  return (
+    <Card className="bg-[#242942] border-[#2d3250] p-6">
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <Input
+          placeholder="Search alerts..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="md:max-w-xs bg-[#1a1d2e] border-[#2d3250] text-white"
+        />
+        
+        <Select value={filterSentiment} onValueChange={setFilterSentiment}>
+          <SelectTrigger className="md:w-48 bg-[#1a1d2e] border-[#2d3250] text-white">
+            <SelectValue placeholder="Filter by sentiment" />
+          </SelectTrigger>
+          <SelectContent className="bg-[#1a1d2e] border-[#2d3250] text-white">
+            <SelectItem value="all">All Sentiments</SelectItem>
+            <SelectItem value="positive">Positive</SelectItem>
+            <SelectItem value="neutral">Neutral</SelectItem>
+            <SelectItem value="negative">Negative</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {selectedRows.length > 0 && (
+          <Button
+            onClick={bulkFlag}
+            className="bg-[#FD7E14] hover:bg-[#e56d0a] text-white"
+          >
+            <Flag className="w-4 h-4 mr-2" />
+            Flag Selected ({selectedRows.length})
+          </Button>
+        )}
+      </div>
+
+      {/* Table */}
+      <div className="rounded-lg border border-[#2d3250] overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-[#1a1d2e] hover:bg-[#1a1d2e] border-[#2d3250]">
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={selectedRows.length === paginatedAlerts.length}
+                  onCheckedChange={(checked) => {
+                    setSelectedRows(checked ? paginatedAlerts.map(a => a.id) : []);
+                  }}
+                />
+              </TableHead>
+              <TableHead className="text-gray-400">Customer</TableHead>
+              <TableHead className="text-gray-400">Source</TableHead>
+              <TableHead className="text-gray-400">Message</TableHead>
+              <TableHead className="text-gray-400">Sentiment</TableHead>
+              <TableHead className="text-gray-400">Urgency</TableHead>
+              <TableHead className="text-gray-400">Time</TableHead>
+              <TableHead className="text-gray-400">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedAlerts.map((alert) => {
+              const SourceIcon = sourceIcon[alert.source];
+              return (
+                <TableRow 
+                  key={alert.id}
+                  className="border-[#2d3250] hover:bg-[#1a1d2e] transition-colors"
+                >
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedRows.includes(alert.id)}
+                      onCheckedChange={() => toggleRowSelection(alert.id)}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <div>
+                      <p className="font-medium text-white">{alert.customer_name}</p>
+                      <p className="text-sm text-gray-400">{alert.customer_id}</p>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <SourceIcon className="w-5 h-5 text-gray-400" />
+                  </TableCell>
+                  <TableCell>
+                    <p className="text-sm text-gray-300 max-w-xs truncate">
+                      {alert.message}
+                    </p>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-16 h-2 rounded-full bg-[#1a1d2e]"
+                      >
+                        <div 
+                          className={`h-full rounded-full ${
+                            alert.sentiment_score > 0 ? 'bg-[#28A745]' :
+                            alert.sentiment_score < 0 ? 'bg-[#DC3545]' : 'bg-[#FD7E14]'
+                          }`}
+                          style={{ width: `${Math.abs(alert.sentiment_score) * 100}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {alert.sentiment_score.toFixed(2)}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Select
+                      value={alert.urgency}
+                      onValueChange={(value) => onUpdateUrgency(alert.id, value)}
+                    >
+                      <SelectTrigger className="w-24 h-8 bg-[#1a1d2e] border-[#2d3250] text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#1a1d2e] border-[#2d3250] text-white">
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <span className="text-sm text-gray-400">
+                      {format(new Date(alert.created_date), "MMM d, h:mm a")}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onFlag(alert.id)}
+                        className={`${alert.is_flagged ? 'text-[#FD7E14]' : 'text-gray-400'} hover:text-[#FD7E14]`}
+                      >
+                        <Flag className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-gray-400 hover:text-[#007BFF]"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between mt-4">
+        <p className="text-sm text-gray-400">
+          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredAlerts.length)} of {filteredAlerts.length} alerts
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="bg-[#1a1d2e] border-[#2d3250] text-white hover:bg-[#242942]"
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="bg-[#1a1d2e] border-[#2d3250] text-white hover:bg-[#242942]"
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
