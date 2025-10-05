@@ -1,1 +1,284 @@
+import React, { useState, useEffect, useCallback } from "react";
+import { SentimentAlert } from "@/entities/SentimentAlert";
+import { InvokeLLM } from "@/integrations/Core";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { RefreshCw, TrendingUp, TrendingDown, AlertCircle } from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import NikeSentimentFeed from "../components/nike/NikeSentimentFeed";
+import NikeTrendChart from "../components/nike/NikeTrendChart";
+import NikeTopics from "../components/nike/NikeTopics";
 
+export default function NikeMonitor() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [stats, setStats] = useState({
+    totalMentions: 0,
+    avgSentiment: 0,
+    trending: "stable"
+  });
+  const { toast } = useToast();
+
+  const calculateStats = useCallback((data) => {
+    if (data.length === 0) return;
+    
+    const avgSentiment = data.reduce((sum, a) => sum + a.sentiment_score, 0) / data.length;
+    const recentAvg = data.slice(0, 5).reduce((sum, a) => sum + a.sentiment_score, 0) / 5;
+    const olderAvg = data.slice(5, 10).reduce((sum, a) => sum + a.sentiment_score, 0) / 5;
+    
+    setStats({
+      totalMentions: data.length,
+      avgSentiment: avgSentiment.toFixed(2),
+      trending: recentAvg > olderAvg ? "up" : recentAvg < olderAvg ? "down" : "stable"
+    });
+  }, []);
+
+  const loadExistingNikeAlerts = useCallback(async () => {
+    const data = await SentimentAlert.filter(
+      { category: "other" },
+      "-created_date",
+      50
+    );
+    const nikeAlerts = data.filter(a => 
+      a.message.toLowerCase().includes("nike") ||
+      a.customer_name.toLowerCase().includes("nike")
+    );
+    setAlerts(nikeAlerts);
+    calculateStats(nikeAlerts);
+  }, [calculateStats]);
+
+  useEffect(() => {
+    loadExistingNikeAlerts();
+  }, [loadExistingNikeAlerts]);
+
+  const fetchLiveSocialData = async () => {
+    setLoading(true);
+    
+    try {
+      toast({
+        title: "Fetching live data...",
+        description: "Gathering Nike mentions from social media",
+      });
+
+      const prompt = `Search the latest social media mentions, discussions, and sentiment about Nike company from Twitter/X and Reddit from the past 24 hours.
+
+Find 10-15 real recent posts/tweets/comments about Nike. For each mention, provide:
+- Author username (realistic social media handle)
+- Author email (generate realistic one based on username)
+- The actual post/tweet/comment text
+- Sentiment score from -1 (very negative) to 1 (very positive)
+- Platform (twitter or reddit)
+- Topic category (product, marketing, stock, controversy, sports, sustainability, etc.)
+
+Focus on:
+- Product reviews and feedback
+- Brand perception
+- Recent campaigns or announcements
+- Customer complaints or praise
+- Stock market sentiment
+- News and controversies
+
+Return ONLY a JSON array with this exact structure, no additional text:`;
+
+      const response = await InvokeLLM({
+        prompt: prompt,
+        add_context_from_internet: true,
+        response_json_schema: {
+          type: "object",
+          properties: {
+            mentions: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  username: { type: "string" },
+                  email: { type: "string" },
+                  message: { type: "string" },
+                  sentiment_score: { type: "number" },
+                  platform: { type: "string" },
+                  topic: { type: "string" }
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (response.mentions && response.mentions.length > 0) {
+        const newAlerts = [];
+        
+        for (const mention of response.mentions) {
+          const sentimentType = 
+            mention.sentiment_score > 0.3 ? "positive" :
+            mention.sentiment_score < -0.3 ? "negative" : "neutral";
+          
+          const urgency = 
+            mention.sentiment_score < -0.6 ? "high" :
+            mention.sentiment_score < -0.2 ? "medium" : "low";
+
+          const alert = await SentimentAlert.create({
+            customer_name: mention.username,
+            customer_email: mention.email,
+            customer_id: mention.username.toLowerCase().replace(/[^a-z0-9]/g, ''),
+            message: mention.message,
+            sentiment_score: mention.sentiment_score,
+            sentiment_type: sentimentType,
+            source: mention.platform === "twitter" ? "social" : "social",
+            urgency: urgency,
+            category: "other",
+            is_flagged: mention.sentiment_score < -0.6,
+            status: "new"
+          });
+          
+          newAlerts.push(alert);
+        }
+
+        await loadExistingNikeAlerts();
+        setLastUpdate(new Date());
+        
+        toast({
+          title: "Data updated!",
+          description: `Found ${newAlerts.length} new Nike mentions`,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching social data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch social media data. Please try again.",
+        variant: "destructive"
+      });
+    }
+    
+    setLoading(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <img 
+              src="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=100&h=100&fit=crop" 
+              alt="Nike" 
+              className="w-12 h-12 rounded-lg object-cover"
+            />
+            <div>
+              <h1 className="text-3xl font-bold text-white">Nike Live Monitor</h1>
+              <p className="text-gray-400">Real-time sentiment from Twitter & Reddit</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          {lastUpdate && (
+            <span className="text-sm text-gray-400">
+              Last update: {lastUpdate.toLocaleTimeString()}
+            </span>
+          )}
+          <Button
+            onClick={fetchLiveSocialData}
+            disabled={loading}
+            className="bg-[#007BFF] hover:bg-[#0056b3]"
+          >
+            {loading ? (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                Fetching...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Refresh Data
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-gray-400 text-sm font-medium mb-2">Total Mentions</p>
+              <h3 className="text-3xl font-bold text-white">{stats.totalMentions}</h3>
+              <p className="text-sm text-gray-500 mt-2">Last 24 hours</p>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#007BFF] to-[#0056b3] flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-gray-400 text-sm font-medium mb-2">Avg Sentiment</p>
+              <h3 className="text-3xl font-bold text-white">{stats.avgSentiment}</h3>
+              <div className="flex items-center gap-1 mt-2">
+                {stats.trending === "up" && (
+                  <>
+                    <TrendingUp className="w-4 h-4 text-[#28A745]" />
+                    <span className="text-sm text-[#28A745]">Improving</span>
+                  </>
+                )}
+                {stats.trending === "down" && (
+                  <>
+                    <TrendingDown className="w-4 h-4 text-[#DC3545]" />
+                    <span className="text-sm text-[#DC3545]">Declining</span>
+                  </>
+                )}
+                {stats.trending === "stable" && (
+                  <span className="text-sm text-gray-400">Stable</span>
+                )}
+              </div>
+            </div>
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+              parseFloat(stats.avgSentiment) > 0 
+                ? 'bg-gradient-to-br from-[#28A745] to-[#1e7e34]'
+                : parseFloat(stats.avgSentiment) < 0
+                ? 'bg-gradient-to-br from-[#DC3545] to-[#a71d2a]'
+                : 'bg-gradient-to-br from-[#FD7E14] to-[#e56d0a]'
+            }`}>
+              {parseFloat(stats.avgSentiment) > 0 ? '😊' : parseFloat(stats.avgSentiment) < 0 ? '😠' : '😐'}
+            </div>
+          </div>
+        </Card>
+
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-gray-400 text-sm font-medium mb-2">Critical Issues</p>
+              <h3 className="text-3xl font-bold text-white">
+                {alerts.filter(a => a.urgency === 'high').length}
+              </h3>
+              <div className="flex gap-2 mt-2">
+                <Badge className="bg-[#DC3545]/20 text-[#DC3545] border-[#DC3545]/30">
+                  High Priority
+                </Badge>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#DC3545] to-[#a71d2a] flex items-center justify-center">
+              <AlertCircle className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Main Content */}
+      <div className="grid lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2">
+          <NikeSentimentFeed alerts={alerts} />
+        </div>
+        <div className="space-y-6">
+          <NikeTopics alerts={alerts} />
+          <NikeTrendChart alerts={alerts} />
+        </div>
+      </div>
+    </div>
+  );
+}
