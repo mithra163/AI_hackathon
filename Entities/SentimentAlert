@@ -1,0 +1,95 @@
+{
+  "name": "SentimentAlert",
+  "type": "object",
+  "properties": {
+    "customer_name": {
+      "type": "string",
+      "description": "Customer full name"
+    },
+    "customer_email": {
+      "type": "string",
+      "description": "Customer email address"
+    },
+    "customer_id": {
+      "type": "string",
+      "description": "Unique customer identifier"
+    },
+    "message": {
+      "type": "string",
+      "description": "The customer message or feedback"
+    },
+    "sentiment_score": {
+      "type": "number",
+      "description": "Sentiment score from -1 to 1",
+      "minimum": -1,
+      "maximum": 1
+    },
+    "sentiment_type": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "neutral",
+        "negative"
+      ],
+      "description": "Categorized sentiment"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "email",
+        "social",
+        "survey",
+        "chat"
+      ],
+      "description": "Source of the feedback"
+    },
+    "urgency": {
+      "type": "string",
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "default": "medium",
+      "description": "Priority level"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "bugs",
+        "ui",
+        "support",
+        "feature",
+        "billing",
+        "other"
+      ],
+      "description": "Issue category"
+    },
+    "is_flagged": {
+      "type": "boolean",
+      "default": false,
+      "description": "Marked as high priority"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "new",
+        "in_progress",
+        "resolved"
+      ],
+      "default": "new",
+      "description": "Current status in queue"
+    },
+    "assigned_to": {
+      "type": "string",
+      "description": "Agent email assigned to handle this"
+    }
+  },
+  "required": [
+    "customer_name",
+    "message",
+    "sentiment_score",
+    "sentiment_type",
+    "source"
+  ]
+}
