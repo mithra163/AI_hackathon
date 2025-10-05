@@ -1,0 +1,147 @@
+import React, { useState, useEffect } from "react";
+import { SentimentAlert } from "@/entities/SentimentAlert";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Download, CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import ChartsSection from "../components/reports/ChartsSection";
+
+export default function Reports() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState({
+    from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+    to: new Date()
+  });
+
+  useEffect(() => {
+    loadAlerts();
+  }, []);
+
+  const loadAlerts = async () => {
+    const data = await SentimentAlert.list("-created_date", 200);
+    setAlerts(data);
+    setLoading(false);
+  };
+
+  const getSentimentData = () => {
+    const total = alerts.length;
+    const positive = alerts.filter(a => a.sentiment_type === 'positive').length;
+    const neutral = alerts.filter(a => a.sentiment_type === 'neutral').length;
+    const negative = alerts.filter(a => a.sentiment_type === 'negative').length;
+
+    return [
+      { name: 'positive', value: ((positive / total) * 100).toFixed(1) },
+      { name: 'neutral', value: ((neutral / total) * 100).toFixed(1) },
+      { name: 'negative', value: ((negative / total) * 100).toFixed(1) }
+    ];
+  };
+
+  const getCategoryData = () => {
+    const categories = ['bugs', 'ui', 'support', 'feature', 'billing', 'other'];
+    return categories.map(cat => ({
+      name: cat.toUpperCase(),
+      count: alerts.filter(a => a.category === cat).length
+    }));
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Customer', 'Email', 'Message', 'Sentiment', 'Score', 'Category', 'Date'];
+    const rows = alerts.map(alert => [
+      alert.customer_name,
+      alert.customer_email,
+      alert.message.replace(/,/g, ';'),
+      alert.sentiment_type,
+      alert.sentiment_score,
+      alert.category,
+      format(new Date(alert.created_date), 'yyyy-MM-dd HH:mm')
+    ]);
+
+    const csv = [headers, ...rows].map(row => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sentiment-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#007BFF]"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">Reports</h1>
+          <p className="text-gray-400">Analyze customer sentiment trends and patterns</p>
+        </div>
+
+        <div className="flex gap-3">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="bg-[#242942] border-[#2d3250] text-white hover:bg-[#2d3250]">
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dateRange.from && format(dateRange.from, "MMM d")} - {dateRange.to && format(dateRange.to, "MMM d")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 bg-[#242942] border-[#2d3250]">
+              <Calendar
+                mode="range"
+                selected={dateRange}
+                onSelect={setDateRange}
+                className="rounded-md border-0"
+              />
+            </PopoverContent>
+          </Popover>
+
+          <Button
+            onClick={exportToCSV}
+            className="bg-[#28A745] hover:bg-[#1e7e34] text-white"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </Button>
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <p className="text-gray-400 text-sm mb-2">Total Alerts</p>
+          <p className="text-3xl font-bold text-white">{alerts.length}</p>
+        </Card>
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <p className="text-gray-400 text-sm mb-2">Avg Sentiment</p>
+          <p className="text-3xl font-bold text-[#28A745]">
+            {(alerts.reduce((sum, a) => sum + a.sentiment_score, 0) / alerts.length).toFixed(2)}
+          </p>
+        </Card>
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <p className="text-gray-400 text-sm mb-2">Resolved</p>
+          <p className="text-3xl font-bold text-white">
+            {alerts.filter(a => a.status === 'resolved').length}
+          </p>
+        </Card>
+        <Card className="bg-[#242942] border-[#2d3250] p-6">
+          <p className="text-gray-400 text-sm mb-2">Response Rate</p>
+          <p className="text-3xl font-bold text-[#007BFF]">
+            {((alerts.filter(a => a.status !== 'new').length / alerts.length) * 100).toFixed(0)}%
+          </p>
+        </Card>
+      </div>
+
+      <ChartsSection 
+        sentimentData={getSentimentData()}
+        categoryData={getCategoryData()}
+      />
+    </div>
+  );
+}
