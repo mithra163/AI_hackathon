@@ -1,0 +1,54 @@
+import React, { useState, useEffect } from "react";
+import { SentimentAlert } from "@/entities/SentimentAlert";
+import AlertTicker from "../components/alerts/AlertTicker";
+import AlertsTable from "../components/alerts/AlertsTable";
+
+export default function Alerts() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAlerts();
+  }, []);
+
+  const loadAlerts = async () => {
+    const data = await SentimentAlert.list("-created_date", 100);
+    setAlerts(data);
+    setLoading(false);
+  };
+
+  const handleFlag = async (alertId) => {
+    const alert = alerts.find(a => a.id === alertId);
+    await SentimentAlert.update(alertId, { is_flagged: !alert.is_flagged });
+    loadAlerts();
+  };
+
+  const handleUpdateUrgency = async (alertId, urgency) => {
+    await SentimentAlert.update(alertId, { urgency });
+    loadAlerts();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#007BFF]"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2">Sentiment Alerts</h1>
+        <p className="text-gray-400">Monitor and respond to customer feedback</p>
+      </div>
+
+      <AlertTicker alerts={alerts} />
+      <AlertsTable 
+        alerts={alerts} 
+        onFlag={handleFlag}
+        onUpdateUrgency={handleUpdateUrgency}
+      />
+    </div>
+  );
+}
