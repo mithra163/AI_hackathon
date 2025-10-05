@@ -1,0 +1,238 @@
+
+import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { createPageUrl } from "@/utils";
+import { 
+  LayoutDashboard, 
+  Bell, 
+  ListTodo, 
+  BarChart3, 
+  Menu,
+  X,
+  Search,
+  User,
+  Settings,
+  LogOut,
+  Activity,
+  Target // Added Target icon
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { User as UserEntity } from "@/entities/User";
+
+const navigationItems = [
+  {
+    title: "Dashboard Overview",
+    url: createPageUrl("Dashboard"),
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Nike Live Monitor", // New navigation item
+    url: createPageUrl("NikeMonitor"),
+    icon: Target, // Icon for Nike Live Monitor
+  },
+  {
+    title: "Sentiment Alerts",
+    url: createPageUrl("Alerts"),
+    icon: Bell,
+  },
+  {
+    title: "Response Queue",
+    url: createPageUrl("Queue"),
+    icon: ListTodo,
+  },
+  {
+    title: "Reports",
+    url: createPageUrl("Reports"),
+    icon: BarChart3,
+  },
+];
+
+export default function Layout({ children, currentPageName }) {
+  const location = useLocation();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [realTimeMode, setRealTimeMode] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleLogout = async () => {
+    await UserEntity.logout();
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0f0f1e] text-white">
+      <style>{`
+        :root {
+          --background: #0f0f1e;
+          --surface: #1a1d2e;
+          --card: #242942;
+          --border: #2d3250;
+          --primary: #007BFF;
+          --success: #28A745;
+          --danger: #DC3545;
+          --warning: #FD7E14;
+        }
+        
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: #2d3250 #1a1d2e;
+        }
+        
+        *::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        
+        *::-webkit-scrollbar-track {
+          background: #1a1d2e;
+        }
+        
+        *::-webkit-scrollbar-thumb {
+          background: #2d3250;
+          border-radius: 4px;
+        }
+        
+        *::-webkit-scrollbar-thumb:hover {
+          background: #3d4260;
+        }
+      `}</style>
+
+      {/* Header */}
+      <header className="fixed top-0 left-0 right-0 h-16 bg-[#1a1d2e] border-b border-[#2d3250] z-50">
+        <div className="h-full px-4 flex items-center justify-between gap-4">
+          {/* Left: Logo & Menu Toggle */}
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="lg:hidden text-white hover:bg-[#242942]"
+            >
+              {sidebarOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </Button>
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#007BFF] to-[#0056b3] flex items-center justify-center">
+                <Activity className="w-5 h-5 text-white" />
+              </div>
+              <div className="hidden sm:block">
+                <h1 className="text-lg font-bold tracking-tight">Sentiment Sentinel</h1>
+                <p className="text-xs text-gray-400">Customer Intelligence</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Center: Search */}
+          <div className="hidden md:flex flex-1 max-w-xl">
+            <div className="relative w-full">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                placeholder="Search by keyword, user, or email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 bg-[#242942] border-[#2d3250] text-white placeholder:text-gray-500 focus:border-[#007BFF]"
+              />
+            </div>
+          </div>
+
+          {/* Right: Real-time Toggle & Profile */}
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-[#242942] rounded-lg">
+              <Activity className={`w-4 h-4 ${realTimeMode ? 'text-[#28A745]' : 'text-gray-400'}`} />
+              <span className="text-sm">Live</span>
+              <Switch
+                checked={realTimeMode}
+                onCheckedChange={setRealTimeMode}
+                className="data-[state=checked]:bg-[#28A745]"
+              />
+            </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="rounded-full bg-[#242942] hover:bg-[#2d3250]">
+                  <User className="w-5 h-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-[#242942] border-[#2d3250] text-white">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-[#2d3250]" />
+                <DropdownMenuItem className="hover:bg-[#2d3250] focus:bg-[#2d3250]">
+                  <Settings className="w-4 h-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={handleLogout}
+                  className="hover:bg-[#2d3250] focus:bg-[#2d3250] text-[#DC3545]"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </header>
+
+      {/* Sidebar */}
+      <aside className={`
+        fixed top-16 left-0 h-[calc(100vh-4rem)] w-64 bg-[#1a1d2e] border-r border-[#2d3250] z-40
+        transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0
+      `}>
+        <nav className="p-4 space-y-2">
+          {navigationItems.map((item) => {
+            const isActive = location.pathname === item.url;
+            return (
+              <Link
+                key={item.title}
+                to={item.url}
+                onClick={() => setSidebarOpen(false)}
+                className={`
+                  flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200
+                  ${isActive 
+                    ? 'bg-[#007BFF] text-white shadow-lg shadow-[#007BFF]/20' 
+                    : 'text-gray-400 hover:bg-[#242942] hover:text-white'
+                  }
+                `}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className="font-medium">{item.title}</span>
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+
+      {/* Mobile Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Main Content */}
+      <main className="pt-16 lg:pl-64 min-h-screen">
+        <div className="p-4 md:p-6 lg:p-8">
+          {children}
+        </div>
+      </main>
+
+      {/* Footer */}
+      <footer className="lg:pl-64 bg-[#1a1d2e] border-t border-[#2d3250] py-4 px-8">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-2 text-sm text-gray-400">
+          <p>© 2024 Sentiment Sentinel. All rights reserved.</p>
+          <p>Version 1.0</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
