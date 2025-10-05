@@ -1,0 +1,63 @@
+import React from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+
+export default function NikeTopics({ alerts }) {
+  const extractTopics = () => {
+    const topics = {};
+    
+    alerts.forEach(alert => {
+      const words = alert.message.toLowerCase().split(' ');
+      const keywords = [
+        'product', 'quality', 'price', 'shipping', 'customer service',
+        'design', 'comfort', 'style', 'sneakers', 'shoes', 'jordans',
+        'sustainability', 'environment', 'stock', 'brand', 'marketing'
+      ];
+      
+      keywords.forEach(keyword => {
+        if (words.some(word => word.includes(keyword))) {
+          topics[keyword] = (topics[keyword] || 0) + 1;
+        }
+      });
+    });
+    
+    return Object.entries(topics)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, 8);
+  };
+
+  const topics = extractTopics();
+
+  return (
+    <Card className="bg-[#242942] border-[#2d3250] p-6">
+      <h3 className="text-xl font-bold text-white mb-4">Trending Topics</h3>
+      
+      {topics.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-8">
+          No topics yet. Fetch data to see trends.
+        </p>
+      ) : (
+        <div className="space-y-3">
+          {topics.map(([topic, count], index) => (
+            <div key={topic} className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                  index === 0 ? 'bg-[#FD7E14] text-white' :
+                  index === 1 ? 'bg-[#007BFF] text-white' :
+                  index === 2 ? 'bg-[#28A745] text-white' :
+                  'bg-[#2d3250] text-gray-400'
+                }`}>
+                  {index + 1}
+                </div>
+                <span className="text-white capitalize">{topic}</span>
+              </div>
+              <Badge variant="outline" className="border-[#2d3250] text-gray-400">
+                {count} mentions
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  );
+}
