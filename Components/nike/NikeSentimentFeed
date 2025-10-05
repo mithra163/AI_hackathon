@@ -1,0 +1,81 @@
+import React from "react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { MessageSquare, Twitter } from "lucide-react";
+import { motion } from "framer-motion";
+import { format } from "date-fns";
+
+const sentimentColor = {
+  positive: "bg-[#28A745]/20 text-[#28A745] border-[#28A745]/30",
+  neutral: "bg-[#FD7E14]/20 text-[#FD7E14] border-[#FD7E14]/30",
+  negative: "bg-[#DC3545]/20 text-[#DC3545] border-[#DC3545]/30"
+};
+
+export default function NikeSentimentFeed({ alerts }) {
+  return (
+    <Card className="bg-[#242942] border-[#2d3250] p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xl font-bold text-white">Live Social Feed</h3>
+        <Badge className="bg-[#28A745]/20 text-[#28A745] border-[#28A745]/30 animate-pulse">
+          ● LIVE
+        </Badge>
+      </div>
+      
+      <div className="space-y-4 max-h-[700px] overflow-y-auto pr-2">
+        {alerts.length === 0 ? (
+          <div className="text-center py-12">
+            <MessageSquare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+            <p className="text-gray-400 mb-4">No Nike mentions yet</p>
+            <p className="text-sm text-gray-500">Click "Refresh Data" to fetch live mentions</p>
+          </div>
+        ) : (
+          alerts.map((alert, index) => (
+            <motion.div
+              key={alert.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+            >
+              <Card className="bg-[#1a1d2e] border-[#2d3250] p-4 hover:border-[#007BFF] transition-all">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#007BFF] to-[#0056b3] flex items-center justify-center flex-shrink-0">
+                    <Twitter className="w-5 h-5 text-white" />
+                  </div>
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-white">@{alert.customer_name}</h4>
+                        <span className="text-xs text-gray-500">
+                          {format(new Date(alert.created_date), "MMM d, h:mm a")}
+                        </span>
+                      </div>
+                      <Badge className={sentimentColor[alert.sentiment_type]}>
+                        {alert.sentiment_score > 0 ? '+' : ''}{alert.sentiment_score.toFixed(2)}
+                      </Badge>
+                    </div>
+                    
+                    <p className="text-sm text-gray-300 mb-2 whitespace-pre-wrap">
+                      {alert.message}
+                    </p>
+                    
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs border-[#2d3250] text-gray-400">
+                        {alert.source === "social" ? "Twitter/X" : "Reddit"}
+                      </Badge>
+                      {alert.is_flagged && (
+                        <Badge className="bg-[#FD7E14]/20 text-[#FD7E14] border-[#FD7E14]/30 text-xs">
+                          🚨 Flagged
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))
+        )}
+      </div>
+    </Card>
+  );
+}
