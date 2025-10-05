@@ -1,1 +1,93 @@
+import React, { useState, useEffect } from "react";
+import { SentimentAlert } from "@/entities/SentimentAlert";
+import { User } from "@/entities/User";
+import KanbanBoard from "../components/queue/KanbanBoard";
+import { useToast } from "@/components/ui/use-toast";
 
+export default function Queue() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    const currentUser = await User.me();
+    setUser(currentUser);
+    const data = await SentimentAlert.list("-created_date", 50);
+    setAlerts(data);
+    setLoading(false);
+  };
+
+  const handleDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const { draggableId, destination } = result;
+    const newStatus = destination.droppableId;
+
+    await SentimentAlert.update(draggableId, { status: newStatus });
+    
+    setAlerts(prev => 
+      prev.map(alert => 
+        alert.id === draggableId 
+          ? { ...alert, status: newStatus }
+          : alert
+      )
+    );
+
+    toast({
+      title: "Status updated",
+      description: `Alert moved to ${newStatus.replace('_', ' ')}`,
+    });
+  };
+
+  const handleAssign = async (alertId) => {
+    await SentimentAlert.update(alertId, { 
+      assigned_to: user.email,
+      status: "in_progress"
+    });
+    loadData();
+    
+    toast({
+      title: "Alert assigned",
+      description: "You've been assigned to this alert",
+    });
+  };
+
+  const handleSendResponse = async (alertId) => {
+    await SentimentAlert.update(alertId, { status: "in_progress" });
+    loadData();
+    
+    toast({
+      title: "Response sent",
+      description: "Your response has been sent to the customer",
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#007BFF]"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2">Response Queue</h1>
+        <p className="text-gray-400">Manage and respond to customer alerts</p>
+      </div>
+
+      <KanbanBoard
+        alerts={alerts}
+        onDragEnd={handleDragEnd}
+        onAssign={handleAssign}
+        onSendResponse={handleSendResponse}
+      />
+    </div>
+  );
+}
