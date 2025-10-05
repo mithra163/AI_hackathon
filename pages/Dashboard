@@ -1,0 +1,90 @@
+import React, { useState, useEffect } from "react";
+import { SentimentAlert } from "@/entities/SentimentAlert";
+import { MessageSquare, TrendingUp, AlertTriangle } from "lucide-react";
+import KPICard from "../components/dashboard/KPICard";
+import SentimentFeed from "../components/dashboard/SentimentFeed";
+import TrendChart from "../components/dashboard/TrendChart";
+
+export default function Dashboard() {
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadAlerts();
+  }, []);
+
+  const loadAlerts = async () => {
+    const data = await SentimentAlert.list("-created_date", 20);
+    setAlerts(data);
+    setLoading(false);
+  };
+
+  const handleFlag = async (alertId) => {
+    const alert = alerts.find(a => a.id === alertId);
+    await SentimentAlert.update(alertId, { is_flagged: !alert.is_flagged });
+    loadAlerts();
+  };
+
+  // Calculate KPIs
+  const totalMentions = alerts.length;
+  const avgSentiment = alerts.length > 0 
+    ? (alerts.reduce((sum, a) => sum + a.sentiment_score, 0) / alerts.length).toFixed(2)
+    : 0;
+  const urgentIssues = alerts.filter(a => a.urgency === 'high' || a.sentiment_type === 'negative').length;
+
+  // Generate trend data (mock for last 24h)
+  const trendData = Array.from({ length: 24 }, (_, i) => ({
+    time: `${i}:00`,
+    positive: Math.random() * 0.5 + 0.3,
+    neutral: Math.random() * 0.3,
+    negative: Math.random() * -0.5 - 0.3
+  }));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#007BFF]"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold text-white mb-2">Dashboard Overview</h1>
+        <p className="text-gray-400">Monitor customer sentiment and engagement in real-time</p>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <KPICard
+          title="Total Mentions"
+          value={totalMentions}
+          trend="+12.5%"
+          icon={MessageSquare}
+          color="bg-gradient-to-br from-[#007BFF] to-[#0056b3]"
+        />
+        <KPICard
+          title="Sentiment Score"
+          value={avgSentiment}
+          trend="+0.08"
+          icon={TrendingUp}
+          color="bg-gradient-to-br from-[#28A745] to-[#1e7e34]"
+        />
+        <KPICard
+          title="Urgent Issues"
+          value={urgentIssues}
+          trend="-2"
+          icon={AlertTriangle}
+          color="bg-gradient-to-br from-[#DC3545] to-[#a71d2a]"
+        />
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <SentimentFeed alerts={alerts} onFlag={handleFlag} />
+        <TrendChart data={trendData} timeRange="Last 24 Hours" />
+      </div>
+    </div>
+  );
+}
